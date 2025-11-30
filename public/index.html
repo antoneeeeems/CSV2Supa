@@ -5,89 +5,210 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Supabase CSV Import</title>
     <style>
+        :root {
+            --primary-color: #007AFF; /* Apple Blue */
+            --success-color: #34C759;
+            --error-color: #FF3B30;
+            --background-color: #F5F5F7;
+            --card-background: #FFFFFF;
+            --text-primary: #1D1D1F;
+            --text-secondary: #86868B;
+            --border-radius: 18px;
+            --transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            max-width: 600px;
-            margin: 2rem auto;
-            padding: 0 1rem;
-            background-color: #f4f4f9;
-            color: #333;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--background-color);
+            color: var(--text-primary);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            -webkit-font-smoothing: antialiased;
         }
+
         .container {
-            background: white;
-            padding: 2rem;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        h1 {
-            margin-top: 0;
-            color: #3ecf8e; /* Supabase green */
-        }
-        .form-group {
-            margin-bottom: 1rem;
-        }
-        label {
-            display: block;
-            margin-bottom: 0.5rem;
-            font-weight: bold;
-        }
-        input[type="file"] {
-            display: block;
+            background: var(--card-background);
+            padding: 40px;
+            border-radius: var(--border-radius);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05);
             width: 100%;
-            padding: 0.5rem;
-            border: 1px solid #ddd;
-            border-radius: 4px;
+            max-width: 480px;
+            text-align: center;
+            transition: var(--transition);
         }
+
+        h1 {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 10px;
+            letter-spacing: -0.5px;
+        }
+
+        p {
+            color: var(--text-secondary);
+            font-size: 15px;
+            line-height: 1.5;
+            margin-bottom: 30px;
+        }
+
+        .upload-area {
+            border: 2px dashed #D2D2D7;
+            border-radius: 12px;
+            padding: 40px 20px;
+            cursor: pointer;
+            transition: var(--transition);
+            position: relative;
+            margin-bottom: 20px;
+        }
+
+        .upload-area:hover, .upload-area.dragover {
+            border-color: var(--primary-color);
+            background-color: rgba(0, 122, 255, 0.03);
+        }
+
+        .upload-icon {
+            width: 48px;
+            height: 48px;
+            margin-bottom: 15px;
+            fill: var(--primary-color);
+        }
+
+        .upload-text {
+            font-size: 16px;
+            font-weight: 500;
+            color: var(--primary-color);
+        }
+
+        .upload-subtext {
+            font-size: 13px;
+            color: var(--text-secondary);
+            margin-top: 5px;
+        }
+
+        input[type="file"] {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        .file-info {
+            display: none;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+            background: #F2F2F7;
+            padding: 10px 15px;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .file-info span {
+            margin-left: 8px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            max-width: 200px;
+        }
+
         button {
-            background-color: #3ecf8e;
+            background-color: var(--primary-color);
             color: white;
             border: none;
-            padding: 0.75rem 1.5rem;
-            border-radius: 4px;
+            padding: 14px 24px;
+            border-radius: 12px;
             cursor: pointer;
-            font-size: 1rem;
-            font-weight: bold;
+            font-size: 16px;
+            font-weight: 600;
+            width: 100%;
+            transition: var(--transition);
+            box-shadow: 0 4px 12px rgba(0, 122, 255, 0.2);
         }
+
         button:hover {
-            background-color: #34b27b;
+            transform: translateY(-1px);
+            box-shadow: 0 6px 16px rgba(0, 122, 255, 0.3);
         }
+
+        button:active {
+            transform: translateY(0);
+        }
+
         button:disabled {
-            background-color: #ccc;
+            background-color: #E5E5EA;
+            color: #8E8E93;
             cursor: not-allowed;
+            box-shadow: none;
+            transform: none;
         }
+
         #status {
-            margin-top: 1rem;
-            padding: 1rem;
-            border-radius: 4px;
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 12px;
+            font-size: 14px;
             display: none;
+            animation: fadeIn 0.3s ease;
         }
+
         .success {
-            background-color: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
+            background-color: rgba(52, 199, 89, 0.1);
+            color: var(--success-color);
         }
+
         .error {
-            background-color: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
+            background-color: rgba(255, 59, 48, 0.1);
+            color: var(--error-color);
         }
+
         .loading {
-            color: #666;
-            font-style: italic;
+            color: var(--text-secondary);
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        /* SVG Icons */
+        .icon {
+            width: 20px;
+            height: 20px;
+            vertical-align: middle;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>CSV Import to Supabase</h1>
-        <p>Select a CSV file to import. The system will automatically detect the target table based on the headers.</p>
+        <h1>Import Data</h1>
+        <p>Upload your CSV file to automatically sync with Supabase.</p>
         
-        <div class="form-group">
-            <label for="csvFile">Choose CSV File</label>
+        <div class="upload-area" id="dropZone">
             <input type="file" id="csvFile" accept=".csv">
+            <svg class="upload-icon" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/>
+            </svg>
+            <div class="upload-text">Click to upload or drag and drop</div>
+            <div class="upload-subtext">CSV files only</div>
+        </div>
+
+        <div class="file-info" id="fileInfo">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path>
+                <polyline points="13 2 13 9 20 9"></polyline>
+            </svg>
+            <span id="fileName">filename.csv</span>
         </div>
         
-        <button id="importBtn">Import Data</button>
+        <button id="importBtn" disabled>Import to Database</button>
         
         <div id="status"></div>
     </div>
@@ -96,19 +217,71 @@
         const importBtn = document.getElementById('importBtn');
         const fileInput = document.getElementById('csvFile');
         const statusDiv = document.getElementById('status');
+        const dropZone = document.getElementById('dropZone');
+        const fileInfo = document.getElementById('fileInfo');
+        const fileNameSpan = document.getElementById('fileName');
+
+        // Handle File Selection
+        fileInput.addEventListener('change', handleFileSelect);
+
+        // Drag and Drop Effects
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, highlight, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, unhighlight, false);
+        });
+
+        function highlight(e) {
+            dropZone.classList.add('dragover');
+        }
+
+        function unhighlight(e) {
+            dropZone.classList.remove('dragover');
+        }
+
+        dropZone.addEventListener('drop', handleDrop, false);
+
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            fileInput.files = files;
+            handleFileSelect();
+        }
+
+        function handleFileSelect() {
+            const file = fileInput.files[0];
+            if (file) {
+                fileNameSpan.textContent = file.name;
+                fileInfo.style.display = 'flex';
+                importBtn.disabled = false;
+                statusDiv.style.display = 'none';
+            } else {
+                fileInfo.style.display = 'none';
+                importBtn.disabled = true;
+            }
+        }
 
         importBtn.addEventListener('click', async () => {
             const file = fileInput.files[0];
-            if (!file) {
-                showStatus('Please select a file first.', 'error');
-                return;
-            }
+            if (!file) return;
 
             const formData = new FormData();
             formData.append('file', file);
 
             importBtn.disabled = true;
-            showStatus('Importing... This may take a moment.', 'loading');
+            importBtn.textContent = 'Importing...';
+            showStatus('Processing your file...', 'loading');
 
             try {
                 const response = await fetch('/upload', {
@@ -116,18 +289,29 @@
                     body: formData
                 });
 
-                const result = await response.json();
+                const text = await response.text();
+                let result;
+                try {
+                    result = JSON.parse(text);
+                } catch (e) {
+                    console.error('Invalid JSON response:', text);
+                    throw new Error('Server returned invalid JSON: ' + text.substring(0, 100));
+                }
 
                 if (response.ok) {
                     showStatus(result.message, 'success');
                     fileInput.value = ''; // Clear input
+                    fileInfo.style.display = 'none';
+                    importBtn.textContent = 'Import to Database';
                 } else {
                     showStatus(result.error || 'Import failed', 'error');
+                    importBtn.disabled = false;
+                    importBtn.textContent = 'Import to Database';
                 }
             } catch (error) {
                 showStatus('Network error: ' + error.message, 'error');
-            } finally {
                 importBtn.disabled = false;
+                importBtn.textContent = 'Import to Database';
             }
         });
 

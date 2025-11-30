@@ -56,6 +56,14 @@ app.post('/upload', upload.single('file'), async (req, res) => {
 
     try {
       const client = await pool.connect();
+      let isReleased = false;
+      const releaseClient = () => {
+          if (!isReleased) {
+              client.release();
+              isReleased = true;
+          }
+      };
+
       try {
         // Fetch all public tables and their columns
         const result = await client.query(`
@@ -90,7 +98,7 @@ app.post('/upload', upload.single('file'), async (req, res) => {
 
         if (!targetTable) {
           fs.unlinkSync(filePath);
-          client.release();
+          releaseClient();
           return res.status(400).json({ error: 'No matching table found for headers: ' + headers.join(', ') });
         }
 
@@ -111,6 +119,8 @@ app.post('/upload', upload.single('file'), async (req, res) => {
         const uniqueCols = [...new Set(pkResult.rows.map(r => r.column_name))];
         const availableUniqueCols = uniqueCols.filter(col => mappedColumns.includes(col));
         
+        console.log(`Unique columns for deduplication: ${availableUniqueCols.join(', ')}`);
+
         // Prepare Batch Insert
         const batchSize = 500;
         let batch = [];
@@ -118,6 +128,7 @@ app.post('/upload', upload.single('file'), async (req, res) => {
         
         const processBatch = async (currentBatch) => {
             if (currentBatch.length === 0) return;
+            console.log(`Processing batch of ${currentBatch.length} rows...`);
 
             const columnsStr = mappedColumns.map(c => `"${c}"`).join(',');
             
@@ -144,21 +155,19 @@ app.post('/upload', upload.single('file'), async (req, res) => {
             if (availableUniqueCols.length > 0) {
                 const conflictCols = availableUniqueCols.map(c => `"${c}"`).join(',');
                 query += ` ON CONFLICT (${conflictCols}) DO NOTHING`;
-            } else {
-                // No unique key? We can't easily dedupe without a key in a simple INSERT.
-                // We could use WHERE NOT EXISTS but that's complex for batch insert.
-                // For now, just INSERT (or maybe DO NOTHING if we can identify duplicates?)
-                // If no PK, we assume append-only or user accepts duplicates.
-                // OR we can try ON CONFLICT DO NOTHING if there is ANY unique constraint.
-                // If absolutely no unique constraint, we just insert.
             }
 
-            const res = await client.query(query, valuesData);
-            totalInserted += res.rowCount;
+            try {
+                const res = await client.query(query, valuesData);
+                totalInserted += res.rowCount;
+            } catch (err) {
+                console.error('Error inserting batch:', err);
+                throw err;
+            }
         };
 
-        const readStream = fs.createReadStream(filePath);
-        const parserStream = readStream.pipe(csv());
+        const fileStream = fs.createReadStream(filePath);
+        const parserStream = fileStream.pipe(csv());
 
         parserStream.on('data', (row) => {
             batch.push(row);
@@ -174,17 +183,18 @@ app.post('/upload', upload.single('file'), async (req, res) => {
         });
 
         parserStream.on('end', async () => {
+            console.log('CSV stream ended. Processing remaining batch...');
             try {
                 if (batch.length > 0) {
                     await processBatch(batch);
                 }
                 console.log('Import completed. Rows inserted:', totalInserted);
-                client.release();
+                releaseClient();
                 try { fs.unlinkSync(filePath); } catch(e) {}
                 if (!res.headersSent) res.json({ message: `Successfully imported ${totalInserted} new rows into table: ${targetTable}` });
             } catch (err) {
                 console.error('Batch Insert Error:', err);
-                client.release();
+                releaseClient();
                 try { fs.unlinkSync(filePath); } catch(e) {}
                 if (!res.headersSent) res.status(500).json({ error: 'Database error: ' + err.message });
             }
@@ -192,7 +202,7 @@ app.post('/upload', upload.single('file'), async (req, res) => {
 
         parserStream.on('error', (err) => {
              console.error('CSV Parse Error:', err);
-             client.release();
+             releaseClient();
              try { fs.unlinkSync(filePath); } catch(e) {}
              if (!res.headersSent) res.status(500).json({ error: 'CSV Parse error: ' + err.message });
         });
@@ -200,7 +210,7 @@ app.post('/upload', upload.single('file'), async (req, res) => {
 
 
       } catch (err) {
-        client.release();
+        releaseClient();
         try { fs.unlinkSync(filePath); } catch(e) {}
         console.error('Database Error:', err);
         if (!res.headersSent) res.status(500).json({ error: 'Database error: ' + err.message });
